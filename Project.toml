@@ -1,0 +1,8 @@
+name = "ForecastTester"
+uuid = "6daad78e-495f-4ec8-90ac-7cc6aa210ae0"
+authors = ["andreramosfc <andreramosfdc@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
