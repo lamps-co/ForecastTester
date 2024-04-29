@@ -9,8 +9,8 @@ function build_train_test_dict(df_train::DataFrame, df_test::DataFrame)
         y_test  = Vector(df_test[i, :])[2:end]
 
         train_test_dict[i] = Dict()
-        train_test_dict[i]["train"] = y_train
-        train_test_dict[i]["test"]  = y_test
+        train_test_dict[i]["train"] = Float64.(y_train)
+        train_test_dict[i]["test"]  = Float64.(y_test)
     end
     return train_test_dict
 end
