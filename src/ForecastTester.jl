@@ -9,7 +9,9 @@ include("models/StateSpaceModels.jl")
 
 const GRANULARITY_DICT = Dict("monthly" => Dict("s" => 12, "H" => 18))
 const S = 1000
-const METRICS = ["MASE", "sMAPE"]
+const METRICS = ["MASE", "sMAPE", "MAPE", "RMSE", "nRMSE", "MAE", "MSE", "MSIS", "COVERAGE_10", "COVERAGE_90", "COVERAGE_50"]
+const WINDOWS_HORIZON_DICT = Dict("monthly" => Dict("short" => 1:6, "medium" => 7:12, "long" => 13:18, "total" => 1:18))
+const HORIZONS = ["short", "medium", "long", "total"]
 
 """
     Read datasets from CSV files of a specified grannularity and return them as DataFrames.
@@ -29,7 +31,7 @@ function read_dataframes(granularity::String)::Tuple{DataFrame, DataFrame}
     return train_set, test_set
 end
 
-function run(test_function::Dict{String, Function}, benchmark_function::Dict{String, Function}, granularity::String)::Nothing
+function run(test_function, benchmark_function, granularity::String)::Nothing
 
     s = GRANULARITY_DICT[granularity]["s"]
     H = GRANULARITY_DICT[granularity]["H"]
@@ -47,11 +49,11 @@ function run(test_function::Dict{String, Function}, benchmark_function::Dict{Str
         for (model_name, model_function) in model_dict
             printstyled("Model: $(model_name)\n"; color = :green)
             prediction, simulation = model_function(y_train, s, H, S)
-            update_metrics!(metrics_dict, prediction, simulation, y_train, y_test, i, model_name)
+            update_metrics!(metrics_dict, prediction, simulation, y_train, y_test, i, model_name, granularity)
         end
     end
-    add_OWA_metric!(metrics_dict, first(collect(keys(benchmark_function))), collect(keys(test_function)))
-    # Calculate OWA
+    
+    return get_average_metrics(metrics_dict, collect(keys(benchmark_function))[1])
 end
 
 end # module ForecastTester
