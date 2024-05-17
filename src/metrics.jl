@@ -104,36 +104,48 @@ function update_metrics!(metrics_dict::Dict{String, Dict{String, Dict{String, Ve
     end
 end
 
-function get_average_metrics(metrics_dict::Dict{String, Dict{String, Dict{String, Vector{Float64}}}}, benchmark_name::String)
+function save_metrics(metrics_dict::Dict{String, Dict{String, Dict{String, Vector{Float64}}}}, benchmark_name::String, number_of_series::Int64)::Nothing
 
-    number_of_models = length(metrics_dict)
+    number_of_models     = length(metrics_dict)
     dict_average_metrics = Dict{String, DataFrame}()
 
     model_names = collect(keys(metrics_dict))
-    for metric in METRICS
-        matrix_metrics = Matrix{Union{String, Float64}}(undef, number_of_models, 5)
-        matrix_metrics[:, 1] = model_names
-        for (m, model_name) in enumerate(model_names)
-            for h_i in eachindex(HORIZONS)
-                matrix_metrics[m, h_i + 1] = mean(metrics_dict[model_name][metric][HORIZONS[h_i]])
+    matrix_metrics = Array{Union{String, Float64}}(undef, number_of_series, length(METRICS), length(HORIZONS), number_of_models)
+    for (metric_i, metric) in enumerate(METRICS)
+        
+        matrix_average_metrics = Matrix{Union{String, Float64}}(undef, number_of_models, 5)
+        matrix_average_metrics[:, 1] = model_names
+        for (horizon_i, horizon) in enumerate(HORIZONS)
+            for (model_i, model_name) in enumerate(model_names)
+                matrix_average_metrics[model_i, horizon_i + 1]  = mean(metrics_dict[model_name][metric][horizon])
+                matrix_metrics[:, metric_i, horizon_i, model_i] = metrics_dict[model_name][metric][horizon]
             end
         end
-        dict_average_metrics[metric] = DataFrame(matrix_metrics, ["model", "short", "medium", "long", "total"])
+        dict_average_metrics[metric] = DataFrame(matrix_average_metrics, ["model", "short", "medium", "long", "total"])
     end
         
     add_OWA_metric!(dict_average_metrics, benchmark_name, setdiff(model_names, [benchmark_name]))
 
-    return dict_average_metrics
+    #save_json
+    #save csvs
+    for (model_i, model_name) in enumerate(model_names)
+        try
+            mkdir("Results/$model_name")
+        catch
+            @warn "Directory already exists"
+        end
+        @info "Saving metrics for model: $model_name"
+        for (horizon_i, horizon) in enumerate(HORIZONS)
+            df_metrics = DataFrame(matrix_metrics[:, :, horizon_i, model_i], METRICS)
+            CSV.write("Results/$(model_name)/$(horizon).csv", df_metrics)
+        end
+
+        @info "Saving OWA metric for model: $model_name"
+        CSV.write("Results/$(model_name)/OWA.csv", dict_average_metrics["OWA"])
+
+    end
+    
 end
-
-function get_plots()
-
-end
-
-function save_results()
-
-end
-
 
 function add_OWA_metric!(dict_average_metrics::Dict{String, DataFrame}, benchmark_name::String, model_names::Vector{String})
     

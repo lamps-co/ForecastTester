@@ -53,7 +53,7 @@ function run(test_function, benchmark_function, granularity::String)::Nothing
         end
     end
     
-    return get_average_metrics(metrics_dict, collect(keys(benchmark_function))[1])
+    save_metrics(metrics_dict, collect(keys(benchmark_function))[1], length(data_dict))
 end
 
 end # module ForecastTester
