@@ -24,6 +24,3 @@ function get_forecast_naive(y::Vector{Float64}, s::Int64, H::Int64, S::Int64)::T
     
     return prediction, nothing
 end
-
-function get_NAIVE_MASE_sMAPE()
-end

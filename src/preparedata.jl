@@ -1,7 +1,17 @@
-#TODO Check if it works with other granularities
-function build_train_test_dict(df_train::DataFrame, df_test::DataFrame)
+"""
+    Prepare data for training and testing
+
+    Args:
+        df_train::DataFrame: DataFrame with the training data
+        df_test::DataFrame: DataFrame with the test data
+
+    Returns:
+        train_test_dict::Dict: Dictionary with the training and test data
+"""
+function build_train_test_dict(df_train::DataFrame, df_test::DataFrame)::Dict{Int, Dict{String, Vector{Float64}}}
     train_test_dict = Dict()
-    for i in eachindex(df_train[:, 1])
+
+    for i in 1:5
         y_raw = Vector(df_train[i, :])[2:end]
         y_train_raw = y_raw[1:findlast(i->!ismissing(i), y_raw)]
         T = length(y_train_raw)
@@ -12,5 +22,6 @@ function build_train_test_dict(df_train::DataFrame, df_test::DataFrame)
         train_test_dict[i]["train"] = Float64.(y_train)
         train_test_dict[i]["test"]  = Float64.(y_test)
     end
+
     return train_test_dict
 end

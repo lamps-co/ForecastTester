@@ -13,7 +13,11 @@
 """
 function get_forecas_SS(y::Vector{Float64}, s::Int64, H::Int64, S::Int64)::Tuple{Vector{Float64}, Matrix{Float64}}
 
-    model = StateSpaceModels.UnobservedComponents(y; trend = "local linear trend", seasonal = "stochastic $s")
+    if s == 1
+        model = StateSpaceModels.UnobservedComponents(y; trend = "local linear trend")
+    else
+        model = StateSpaceModels.UnobservedComponents(y; trend = "local linear trend", seasonal = "stochastic $s")
+    end
     StateSpaceModels.fit!(model)
     
     prediction = StateSpaceModels.forecast(model, H).expected_value
