@@ -1,11 +1,12 @@
 module ForecastTester
 
-using CSV, DataFrames, StateSpaceModels, Statistics
+using CSV, DataFrames, StateSpaceModels, Statistics, Sarimax
 
 include("preparedata.jl")
 include("metrics.jl")
 include("models/Naive.jl")
 include("models/StateSpaceModels.jl")
+include("models/Sarimax.jl")
 
 const GRANULARITY_DICT = Dict("monthly"   => Dict("s" => 12, "H" => 18),
                               "daily"     => Dict("s" => 1, "H" => 14),
