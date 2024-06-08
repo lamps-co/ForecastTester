@@ -15,7 +15,7 @@ function get_forecast_SARIMAX(y::Vector{Float64}, s::Int64, H::Int64, S::Int64):
 
     df = DataFrame(y = y)
     dataset = Sarimax.loadDataset(df)
-    model = Sarimax.auto(dataset;seasonality = s, seasonalIntegrationTest="ch",assertStationarity=true, assertInvertibility=true)
+    model = Sarimax.auto(dataset;seasonality = s, seasonalIntegrationTest="ch",assertStationarity=true)
     Sarimax.predict!(model; stepsAhead=H)
     scenarios = Sarimax.simulate(model, H, S)
 
