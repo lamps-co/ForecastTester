@@ -1,0 +1,3 @@
+[submodule "StateSpaceLearning"]
+	path = StateSpaceLearning
+	url = https://github.com/lamps-co/StateSpaceLearning.git
