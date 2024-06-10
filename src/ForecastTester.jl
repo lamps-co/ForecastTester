@@ -9,6 +9,7 @@ include("metrics.jl")
 include("models/utils.jl")
 include("models/Naive.jl")
 include("models/StateSpaceModels.jl")
+include("models/ETS.jl")
 include("models/StateSpaceModelsPython.jl")
 
 const GRANULARITY_DICT = Dict("monthly"   => Dict("s" => 12, "H" => 18),
