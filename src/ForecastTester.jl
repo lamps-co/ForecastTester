@@ -1,6 +1,6 @@
 module ForecastTester
 
-using CSV, DataFrames, StateSpaceModels, Statistics, PyCall
+using CSV, DataFrames, StateSpaceModels, Statistics, PyCall, Distributions
 
 include("../StateSpaceLearning/src/StateSpaceLearning.jl")
 
@@ -9,6 +9,7 @@ include("metrics.jl")
 include("models/utils.jl")
 include("models/Naive.jl")
 include("models/StateSpaceModels.jl")
+include("models/AutoSarimaPython.jl")
 include("models/ETS.jl")
 include("models/StateSpaceModelsPython.jl")
 
@@ -60,13 +61,13 @@ end
 """
 function run(test_function::Dict{String, Fn}, granularity::String)::Nothing where {Fn}
 
-    benchmark_function = Dict("Naive" => get_forecast_naive)
+    benchmark_function = Dict("Naive" => ForecastTester.get_forecast_naive)
 
-    s = GRANULARITY_DICT[granularity]["s"]
-    H = GRANULARITY_DICT[granularity]["H"]
+    s = ForecastTester.GRANULARITY_DICT[granularity]["s"]
+    H = ForecastTester.GRANULARITY_DICT[granularity]["H"]
 
     model_dict = merge(test_function, benchmark_function)
-    data_dict  = build_train_test_dict(read_dataframes(granularity)...)
+    data_dict  = ForecastTester.build_train_test_dict(ForecastTester.read_dataframes(granularity)...)
     
     metrics_dict = initialize_metrics_dict(collect(keys(model_dict)), length(data_dict))
     
