@@ -6,20 +6,64 @@ function fit_ETS_model(y::Vector{Float64}, s::Int64)::Dict
     from itertools import product
     from sklearn.metrics import mean_absolute_percentage_error as mape
 
-    # CONFIRMAR A LÓGICA COM O JOÃO LUCAS
     def fit_ets(y, s):
 
+        RESTRICTED = [("add", None,  False, "mul"),
+              ("add", "add", False, "mul"),
+              ("add", "add", True,  "mul"),
+              ("mul", "mul", False, "add"),
+              ("mul", "mul", True,  "add"),
+              ("add", "mul", False, None),
+              ("add", "mul", True,  None),
+              ("add", "mul", False, "add"),
+              ("add", "mul", True,  "add"),
+              ("add", "mul", False, "mul"),
+              ("add", "mul", True, " mul")]
+
+        MUL_TREND = [("add", "mul", False, "add"),
+             ("add", "mul", False, "mul"),
+             ("add", "mul", False, None),
+             ("add", "mul", True,  "add"),
+             ("add", "mul", True,  "mul"),
+             ("add", "mul", True,  None),
+             ("mul", "mul", False, "add"),
+             ("mul", "mul", False, "mul"),
+             ("mul", "mul", False, None),
+             ("mul", "mul", True,  "add"),
+             ("mul", "mul", True,  "mul"),
+             ("mul", "mul", True,  None)]
+
+        POSITIVE_OBS = [("add", None, False, None),
+                        ("add", None, False, "add"),
+                        ("add", "add", False, None),
+                        ("add", "add", False, "add"),
+                        ("add", "add", True, None),
+                        ("add", "add", True, "add")]
+
+        allow_restricted = False
+        allow_mul_trend  = False
+
+        T = len(y)
+
         configs = set()
-        for config in product(["add", "mul"],
-                            ["add", "mul"],
-                            [False, True],
-                            ["add", "mul", None]):
-            configs.add(config)
-        for config in product(["add", "mul"],
-                            [None],
-                            [False],
-                            ["add", "mul", None]):
-            configs.add(config)
+        if any([y[t] <= 0.0 for t in range(T)]):
+            for config in POSITIVE_OBS:
+                configs.add(config)
+        else:
+            for config in product(["add", "mul"],
+                                ["add", "mul"],
+                                [False, True],
+                                ["add", "mul", None]):
+                configs.add(config)
+            for config in product(["add", "mul"],
+                                [None],
+                                [False],
+                                ["add", "mul", None]):
+                configs.add(config)
+            if not allow_restricted:
+                configs = configs.difference(RESTRICTED)
+            if not allow_mul_trend:
+                configs = configs.difference(MUL_TREND)
 
         configs = [{"error":            config[0],
                     "trend":            config[1],
@@ -28,7 +72,6 @@ function fit_ETS_model(y::Vector{Float64}, s::Int64)::Dict
                     "seasonal_periods": s
                     } for config in configs]
 
-        # PERGUNTAR PARA O JOÃO LUCAS O QUE SIGNIFICA A SINTAXE ** DO PYTHON
         best_config = configs[0]
         best_ets = ETSModel(
             pd.Series(y), **best_config).fit(
