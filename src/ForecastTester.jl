@@ -1,6 +1,6 @@
 module ForecastTester
 
-using CSV, DataFrames, StateSpaceModels, Statistics, PyCall, Distributions
+using CSV, DataFrames, StateSpaceModels, Statistics, PyCall, Distributions, Distributed
 
 include("../StateSpaceLearning/src/StateSpaceLearning.jl")
 
@@ -60,6 +60,43 @@ function initialize_dict_with_errors_series(model_dict::Dict)::Dict{String, Vect
     return errors_series
 end
 
+function run_distributed(input::Dict)
+
+    y_train    = input["train"]
+    i          = input["i"]
+    model_dict = input["model_dict"]
+    s          = input["s"]
+    H          = input["H"]
+
+    (i % 1000) == 1 ? printstyled("Run series $(i)\n"; color = :green) : nothing
+
+    output_dict = Dict()
+    errors_series_dict_i = Dict()
+
+    for (model_name, model_function) in model_dict
+        
+        prediction = nothing; simulation = nothing
+        try
+            prediction, simulation = model_function(y_train, s, H, ForecastTester.S)
+            if i == 2
+                throw("erro")
+            end
+        catch
+            printstyled("Error when estimating/forecasting model $(model_name)!\n"; color = :red)
+            prediction = ones(H) .* y_train[end]
+            simulation = nothing
+
+            errors_series_dict_i[model_name] = i
+        end
+        output_dict[model_name] = Dict()
+        output_dict[model_name]["prediction"] = prediction
+        output_dict[model_name]["simulation"] = simulation
+    end
+
+    return Dict("output_dict" => output_dict, "i" => i, "errors_series_dict_i" => errors_series_dict_i)
+
+end
+
 """
     Run the requested models and granularity and save the metrics in a CSV file.
     
@@ -86,27 +123,37 @@ function run(test_function::Dict{String, Fn}, granularity::String)::Nothing wher
     prediction = nothing
     simulation = nothing
     
-    for i in sort(collect(keys(data_dict)))
-         
-        (i % 1000) == 1 ? printstyled("Forecasting time-series $i: \n"; color = :yellow) : nothing
+    vec_dict = []
+    for i in sort(collect(keys(data_dict)))[1:2]
+        y_train = data_dict[i]["train"]
+
+        push!(vec_dict, Dict("train" => y_train, "i" => i, "model_dict" => model_dict, "s" => s, "H" => H))
+    end
+    
+    output_vec_dict = pmap(run_distributed, vec_dict)
+
+    for j in eachindex(output_vec_dict)
+
+        output_i             = output_vec_dict[j]
         
+        i                    = output_i["i"]
+        errors_series_dict_i = output_i["errors_series_dict_i"]
+            
         y_train = data_dict[i]["train"]
         y_test  = data_dict[i]["test"]
+        for model_name in keys(model_dict)
+        
+            prediction           = output_i["output_dict"][model_name]["prediction"]
+            simulation           = output_i["output_dict"][model_name]["simulation"] 
 
-        for (model_name, model_function) in model_dict
-            printstyled("Model $(model_name)\n"; color = :green)
-            try
-                prediction, simulation = model_function(y_train, s, H, ForecastTester.S)
-            catch
-                printstyled("Error when estimating/forecasting model $(model_name)!\n"; color = :red)
-                prediction = ones(H) .* y_train[end]
-                simulation = nothing
-
+            ForecastTester.update_metrics!(metrics_dict, prediction, simulation, y_train, y_test, i, model_name, granularity)
+            
+            if haskey(errors_series_dict_i, model_name)
                 push!(errors_series_dict[model_name], i)
             end
 
-            ForecastTester.update_metrics!(metrics_dict, prediction, simulation, y_train, y_test, i, model_name, granularity)
         end
+        
     end
 
     try

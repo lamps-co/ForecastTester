@@ -333,7 +333,6 @@ function save_metrics(metrics_dict::Dict{String, Dict{String, Dict{String, Vecto
 
         @info "Saving series with errors in estimation/forecasting for model: $(model_name)"
         if !isempty(errors_series_dict[model_name])
-            println("Entrou!")
             CSV.write("Results/$(granularity)/$(model_name)/errors_series.csv", DataFrame(errors_series_dict[model_name][:, :], :auto))
         end
 
