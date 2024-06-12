@@ -124,7 +124,7 @@ function run(test_function::Dict{String, Fn}, granularity::String)::Nothing wher
     simulation = nothing
     
     vec_dict = []
-    for i in sort(collect(keys(data_dict)))[1:2]
+    for i in sort(collect(keys(data_dict)))
         y_train = data_dict[i]["train"]
 
         push!(vec_dict, Dict("train" => y_train, "i" => i, "model_dict" => model_dict, "s" => s, "H" => H))
