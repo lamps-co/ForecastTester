@@ -49,6 +49,17 @@ function read_dataframes(granularity::String)::Tuple{DataFrame, DataFrame}
     return train_set, test_set
 end
 
+function initialize_dict_with_errors_series(model_dict::Dict)::Dict{String, Vector}
+
+    errors_series = Dict{String, Vector}()
+
+    for (model_name, model_function) in model_dict
+        errors_series[model_name] = []
+    end
+
+    return errors_series
+end
+
 """
     Run the requested models and granularity and save the metrics in a CSV file.
     
@@ -69,9 +80,13 @@ function run(test_function::Dict{String, Fn}, granularity::String)::Nothing wher
     model_dict = merge(test_function, benchmark_function)
     data_dict  = ForecastTester.build_train_test_dict(ForecastTester.read_dataframes(granularity)...)
     
-    metrics_dict = initialize_metrics_dict(collect(keys(model_dict)), length(data_dict))
+    metrics_dict = ForecastTester.initialize_metrics_dict(collect(keys(model_dict)), length(data_dict))
+    errors_series_dict = ForecastTester.initialize_dict_with_errors_series(model_dict)
+
+    prediction = nothing
+    simulation = nothing
     
-    for i in keys(data_dict)
+    for i in sort(collect(keys(data_dict)))
          
         (i % 1000) == 1 ? printstyled("Forecasting time-series $i: \n"; color = :yellow) : nothing
         
@@ -80,8 +95,17 @@ function run(test_function::Dict{String, Fn}, granularity::String)::Nothing wher
 
         for (model_name, model_function) in model_dict
             printstyled("Model $(model_name)\n"; color = :green)
-            prediction, simulation = model_function(y_train, s, H, S)
-            update_metrics!(metrics_dict, prediction, simulation, y_train, y_test, i, model_name, granularity)
+            try
+                prediction, simulation = model_function(y_train, s, H, ForecastTester.S)
+            catch
+                printstyled("Error when estimating/forecasting model $(model_name)!\n"; color = :red)
+                prediction = ones(H) .* y_train[end]
+                simulation = nothing
+
+                push!(errors_series_dict[model_name], i)
+            end
+
+            ForecastTester.update_metrics!(metrics_dict, prediction, simulation, y_train, y_test, i, model_name, granularity)
         end
     end
 
@@ -97,7 +121,7 @@ function run(test_function::Dict{String, Fn}, granularity::String)::Nothing wher
         @warn "Directory of $(granularity) already exists"
     end
     
-    save_metrics(metrics_dict, collect(keys(benchmark_function))[1], length(data_dict), granularity)
+    save_metrics(metrics_dict, collect(keys(benchmark_function))[1], length(data_dict), granularity, errors_series_dict)
 end
 
 end 

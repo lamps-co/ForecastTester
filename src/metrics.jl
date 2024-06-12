@@ -291,7 +291,8 @@ end
         Nothing
 
 """
-function save_metrics(metrics_dict::Dict{String, Dict{String, Dict{String, Vector{Float64}}}}, benchmark_name::String, number_of_series::Int64, granularity::String)::Nothing
+function save_metrics(metrics_dict::Dict{String, Dict{String, Dict{String, Vector{Float64}}}}, benchmark_name::String, number_of_series::Int64, 
+                        granularity::String, errors_series_dict::Dict{String, Vector})::Nothing
 
     number_of_models     = length(metrics_dict)
     dict_average_metrics = Dict{String, DataFrame}()
@@ -329,6 +330,12 @@ function save_metrics(metrics_dict::Dict{String, Dict{String, Dict{String, Vecto
 
         @info "Saving OWA metric for model: $model_name"
         CSV.write("Results/$(granularity)/$(model_name)/OWA.csv", dict_average_metrics["OWA"])
+
+        @info "Saving series with errors in estimation/forecasting for model: $(model_name)"
+        if !isempty(errors_series_dict[model_name])
+            println("Entrou!")
+            CSV.write("Results/$(granularity)/$(model_name)/errors_series.csv", DataFrame(errors_series_dict[model_name][:, :], :auto))
+        end
 
     end
 end
