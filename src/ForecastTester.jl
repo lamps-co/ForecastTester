@@ -1,6 +1,8 @@
 module ForecastTester
 
-using CSV, DataFrames, StateSpaceModels, Statistics, PyCall, Distributions, Distributed
+using CSV, DataFrames, StateSpaceModels, Statistics, PyCall, Distributions, Distributed, RCall
+
+
 
 include("../StateSpaceLearning/src/StateSpaceLearning.jl")
 
