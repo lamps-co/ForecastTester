@@ -165,7 +165,7 @@ function CRPS(simulation::Matrix{Float64}, y::Vector{Float64})::Float64
         # Calculate CRPS
         t_crps_value = 0.0
         for i in 1:S
-            if sorted_sims[i] < y[t]
+            if sorted_data[i] < y[t]
                 t_crps_value += (1 - cdf[i])^2
             else
                 t_crps_value += cdf[i]^2
