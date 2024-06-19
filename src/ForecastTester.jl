@@ -31,7 +31,7 @@ const WINDOWS_HORIZON_DICT = Dict("monthly"   => Dict("short" => 1:6, "medium" =
 
 const HORIZONS = ["short", "medium", "long", "total"]
 const S = 1000
-const METRICS = ["MASE", "sMAPE", "MAPE", "RMSE", "nRMSE", "MAE", "MSE", "MSIS", "COVERAGE_0", "COVERAGE_100", "COVERAGE_10", "COVERAGE_90", "COVERAGE_50"]
+const METRICS = ["MASE", "sMAPE", "MAPE", "RMSE", "nRMSE", "MAE", "MSE", "MSIS", "COVERAGE_0", "COVERAGE_100", "COVERAGE_10", "COVERAGE_90", "COVERAGE_50", "CRPS"]
 const α = 0.05
 """
     Read datasets from CSV files of a specified grannularity and return them as DataFrames.
