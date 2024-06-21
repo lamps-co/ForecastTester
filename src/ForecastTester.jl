@@ -1,10 +1,9 @@
 module ForecastTester
 
-using CSV, DataFrames, StateSpaceModels, Statistics, PyCall, Distributions, Distributed, RCall
-
-
+using CSV, DataFrames, StateSpaceModels, Statistics, PyCall, Distributions, Distributed, RCall, TimeSeries
 
 include("../StateSpaceLearning/src/StateSpaceLearning.jl")
+include("../SARIMAX.jl/src/Sarimax.jl")
 
 include("preparedata.jl")
 include("metrics.jl")
@@ -14,6 +13,7 @@ include("models/StateSpaceModels.jl")
 include("models/AutoSarimaPython.jl")
 include("models/ETS.jl")
 include("models/StateSpaceModelsPython.jl")
+include("models/Sarimax.jl")
 
 const GRANULARITY_DICT = Dict("monthly"   => Dict("s" => 12, "H" => 18),
                               "daily"     => Dict("s" => 1, "H" => 14),
@@ -80,15 +80,13 @@ function run_distributed(input::Dict)
         prediction = nothing; simulation = nothing
         try
             prediction, simulation = model_function(y_train, s, H, ForecastTester.S)
-            if i == 2
-                throw("erro")
-            end
-        catch
+        catch err
             printstyled("Error when estimating/forecasting model $(model_name)!\n"; color = :red)
             prediction = ones(H) .* y_train[end]
             simulation = nothing
 
             errors_series_dict_i[model_name] = i
+            print(err)
         end
         output_dict[model_name] = Dict()
         output_dict[model_name]["prediction"] = prediction

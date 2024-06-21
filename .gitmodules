@@ -1,3 +1,6 @@
 [submodule "StateSpaceLearning"]
 	path = StateSpaceLearning
 	url = https://github.com/lamps-co/StateSpaceLearning.git
+[submodule "SARIMAX.jl"]
+	path = SARIMAX.jl
+	url = https://github.com/LAMPSPUC/SARIMAX.jl.git
