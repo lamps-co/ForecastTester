@@ -197,7 +197,7 @@ function COVERAGE(scenarios::Matrix{Fl}, y_test::Vector{Fl}, q::Float64)::Float6
 
     quantiles = mapslices(x -> quantile(x, q), scenarios; dims = 2)
     
-    return sum(y_test .< quantiles)/H
+    return sum(y_test .< quantiles)
 end
 
 """
@@ -283,12 +283,12 @@ end
     Returns:
         Nothing
 """
-function add_OWA_metric!(dict_average_metrics::Dict{String, DataFrame}, benchmark_name::String, model_names::Vector{String})::Nothing
+function add_OWA_metric(dict_average_metrics::Dict{String, DataFrame}, benchmark_name::String, model_names::Vector{String})::Nothing
     
     number_of_models = length(model_names)
     
     matrix_metrics = Matrix{Union{String, Float64}}(undef, number_of_models, 5)
-    matrix_metrics[:, 1] = model_names
+    matrix_metrics[:, 1] .= model_names
     for (m, model_name) in enumerate(model_names)
         
         for h_i in eachindex(HORIZONS)
@@ -302,8 +302,40 @@ function add_OWA_metric!(dict_average_metrics::Dict{String, DataFrame}, benchmar
         end
     end
 
-    dict_average_metrics["OWA"] = DataFrame(matrix_metrics, ["model", "short", "medium", "long", "total"])
-    return nothing
+    owa_metric_dfs = Dict{String, DataFrame}()
+    for (m, model_name) in enumerate(model_names)
+        owa_metric_dfs[k] = DataFrame(matrix_metrics[m, 2:end], ["short", "medium", "long", "total"])
+    end
+    
+    return owa_metric_dfs
+end
+
+function add_ACD_metric(metrics_dict::Dict{String, DataFrame}, model_names::Vector{String}, granularity::String)::Nothing
+
+    # Retornar um dicionário de tamanho igual a quantidade de métricas coverage
+    # Cada chave aponta pra um DF, com número de linhas igual ao número de modelos e número de colunas igual ao horizonte
+
+    number_of_models = length(model_names)
+    
+    acd_metric_dict = Dict{String, Matrix}()
+    for model_name in model_names
+        acd_metric_dict[model_name] = Matrix{Union{String, Float64}}(undef, 5, length(HORIZONS))
+        acd_metric_dict[model_name][:, 1] .= [0, 0.1, 0.5, 0.9, 1]
+        for (j, q) in enumerate([0, 0.1, 0.5, 0.9, 1])
+            for (i, h_i) in enumerate(HORIZONS)
+                number_of_series = length(metrics_dict[model_name]["ACD_$(Int64(q*100))"][h_i])
+                H = length(collect(ForecastTester.WINDOWS_HORIZON_DICT[granularity][h_i]))
+                acd_metric_dict[model_name][j, i + 1] = abs(q - sum(metrics_dict[model_name]["COVERAGE_$(Int64(q*100))"][h_i]) / (number_of_series * H))
+            end
+        end
+    end
+
+    acd_metric_dfs = Dict{String, DataFrame}()
+    for (k, v) in acd_metric_dict
+        acd_metric_dfs[k] = DataFrame(v, ["Quantile", "short", "medium", "long", "total"])
+    end
+
+    return acd_metric_dfs
 end
 
 """
@@ -329,19 +361,23 @@ function save_metrics(metrics_dict::Dict{String, Dict{String, Dict{String, Vecto
     model_names = collect(keys(metrics_dict))
     matrix_metrics = Array{Union{String, Float64}}(undef, number_of_series, length(METRICS), length(HORIZONS), number_of_models)
     for (metric_i, metric) in enumerate(METRICS)
-        
-        matrix_average_metrics = Matrix{Union{String, Float64}}(undef, number_of_models, 5)
-        matrix_average_metrics[:, 1] = model_names
-        for (horizon_i, horizon) in enumerate(HORIZONS)
-            for (model_i, model_name) in enumerate(model_names)
-                matrix_average_metrics[model_i, horizon_i + 1]  = mean(metrics_dict[model_name][metric][horizon])
-                matrix_metrics[:, metric_i, horizon_i, model_i] = metrics_dict[model_name][metric][horizon]
+
+        if !(metric in ["COVERAGE_$(Int64(q*100))" for q in [0, 0.1, 0.5, 0.9, 1]])
+
+            matrix_average_metrics = Matrix{Union{String, Float64}}(undef, number_of_models, 5)
+            matrix_average_metrics[:, 1] = model_names
+            for (horizon_i, horizon) in enumerate(HORIZONS)
+                for (model_i, model_name) in enumerate(model_names)
+                    matrix_average_metrics[model_i, horizon_i + 1]  = mean(metrics_dict[model_name][metric][horizon])
+                    matrix_metrics[:, metric_i, horizon_i, model_i] = metrics_dict[model_name][metric][horizon]
+                end
             end
+            dict_average_metrics[metric] = DataFrame(matrix_average_metrics, ["model", "short", "medium", "long", "total"])
         end
-        dict_average_metrics[metric] = DataFrame(matrix_average_metrics, ["model", "short", "medium", "long", "total"])
     end
         
-    add_OWA_metric!(dict_average_metrics, benchmark_name, setdiff(model_names, [benchmark_name]))
+    acd_metric_dfs = add_ACD_metric(metrics_dict, model_names, granularity)
+    owa_metric_dfs = add_OWA_metric(dict_average_metrics, benchmark_name, setdiff(model_names, [benchmark_name]))
 
     for (model_i, model_name) in enumerate(model_names)
         @info "Saving metrics for model: $model_name"
@@ -359,6 +395,9 @@ function save_metrics(metrics_dict::Dict{String, Dict{String, Dict{String, Vecto
 
         @info "Saving OWA metric for model: $model_name"
         CSV.write("Results/$(granularity)/$(model_name)/OWA.csv", dict_average_metrics["OWA"])
+
+        @info "Saving ACD metric for model: $model_name"
+        CSV.write("Results/$(granularity)/$(model_name)/ACD.csv", acd_metric_dfs[model_name])
 
         @info "Saving series with errors in estimation/forecasting for model: $(model_name)"
         if !isempty(errors_series_dict[model_name])
