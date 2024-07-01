@@ -394,7 +394,8 @@ function save_metrics(metrics_dict::Dict{String, Dict{String, Dict{String, Vecto
         end
 
         @info "Saving OWA metric for model: $model_name"
-        CSV.write("Results/$(granularity)/$(model_name)/OWA.csv", dict_average_metrics["OWA"])
+        # CSV.write("Results/$(granularity)/$(model_name)/OWA.csv", dict_average_metrics["OWA"])
+        CSV.write("Results/$(granularity)/$(model_name)/OWA.csv", owa_metric_dfs)
 
         @info "Saving ACD metric for model: $model_name"
         CSV.write("Results/$(granularity)/$(model_name)/ACD.csv", acd_metric_dfs[model_name])

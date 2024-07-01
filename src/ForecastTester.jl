@@ -70,31 +70,36 @@ function run_distributed(input::Dict)
     s          = input["s"]
     H          = input["H"]
 
-    (i % 1000) == 1 ? printstyled("Run series $(i)\n"; color = :green) : nothing
+    # (i % 1000) == 1 ? printstyled("Run series $(i)\n"; color = :green) : nothing
+    printstyled("Run series $(i)\n"; color = :green)
 
     output_dict = Dict()
     errors_series_dict_i = Dict()
 
     for (model_name, model_function) in model_dict
         
-        prediction = nothing; simulation = nothing
+        prediction = nothing; simulation = nothing; running_time = nothing
         try
-            prediction, simulation = model_function(y_train, s, H, ForecastTester.S)
+            running_time = @elapsed begin
+                prediction, simulation = model_function(y_train, s, H, ForecastTester.S)
+            end
         catch err
             printstyled("Error when estimating/forecasting model $(model_name)!\n"; color = :red)
             prediction = ones(H) .* y_train[end]
             simulation = nothing
+            running_time = 0.0
 
             errors_series_dict_i[model_name] = i
             print(err)
         end
         output_dict[model_name] = Dict()
-        output_dict[model_name]["prediction"] = prediction
-        output_dict[model_name]["simulation"] = simulation
+        output_dict[model_name]["prediction"]   = prediction
+        output_dict[model_name]["simulation"]   = simulation
+        output_dict[model_name]["running_time"] = running_time
+
     end
 
     return Dict("output_dict" => output_dict, "i" => i, "errors_series_dict_i" => errors_series_dict_i)
-
 end
 
 """
@@ -129,8 +134,9 @@ function run(test_function::Dict{String, Fn}, granularity::String)::Nothing wher
 
         push!(vec_dict, Dict("train" => y_train, "i" => i, "model_dict" => model_dict, "s" => s, "H" => H))
     end
-    
-    output_vec_dict = pmap(run_distributed, vec_dict)
+
+    output_vec_dict = ForecastTester.pmap(ForecastTester.run_distributed, vec_dict[1:5])
+    running_time_df = DataFrame(Matrix{Float64}(undef, length(output_vec_dict), length(model_dict)), collect(keys(model_dict)))
 
     for j in eachindex(output_vec_dict)
 
@@ -152,6 +158,7 @@ function run(test_function::Dict{String, Fn}, granularity::String)::Nothing wher
                 push!(errors_series_dict[model_name], i)
             end
 
+            running_time_df[j, Symbol(model_name)]
         end
         
     end
@@ -169,6 +176,7 @@ function run(test_function::Dict{String, Fn}, granularity::String)::Nothing wher
     end
     
     save_metrics(metrics_dict, collect(keys(benchmark_function))[1], length(data_dict), granularity, errors_series_dict)
+    CSV.write("Results/running_time.csv", running_time_df)
 end
 
 end 
