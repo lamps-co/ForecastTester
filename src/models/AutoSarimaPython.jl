@@ -67,7 +67,8 @@ function fit_autosarima_model(y::Vector{Fl}, s::Int64)::Dict where {Fl}
     def auto_sarimax(y, s):        
         y           = np.array(y)
         end_index   = len(y)
-        start_index = end_index - 1095 if end_index >= 1095 else 0
+        # start_index = end_index - 1095 if end_index >= 1095 else 0
+        start_index = end_index - 500 if end_index >= 500 else 0
 
         sliced_y    = y[start_index:end_index]
         fitted_models = []
@@ -93,7 +94,7 @@ function fit_autosarima_model(y::Vector{Fl}, s::Int64)::Dict where {Fl}
                 selected_order = fitted_model.model_['arma']
                 order = (selected_order[0], selected_order[5], selected_order[1])
                 seasonal_order = (selected_order[2], selected_order[6], selected_order[3], selected_order[4])
-                fitted = fit_sarimax_from_auto(y, d, D, s, True, True, order, seasonal_order, trend)
+                fitted = fit_sarimax_from_auto(sliced_y, d, D, s, True, True, order, seasonal_order, trend)
                 fit_in_sample, aic, bic, aicc, sarima_config = get_results(fitted, order, seasonal_order, trend)
                 fitted_models.append({'dict_fitted_model': fitted,
                                       'fit_in_sample': fit_in_sample,
