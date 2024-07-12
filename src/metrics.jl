@@ -272,6 +272,63 @@ function update_metrics!(metrics_dict::Dict{String, Dict{String, Dict{String, Ve
     end
 end
 
+function update_metrics2(y_forecast::Vector{Fl},
+                            scenarios::Union{Matrix{Float64}, Nothing}, y_train::Vector{Fl}, y_test::Vector{Fl}, 
+                            series_idx::Int64, model_name::String, granularity::String) where {Fl}
+                            
+    m_dict = Dict()
+    m_dict["MASE"] = Dict()
+    m_dict["MAPE"] = Dict()
+    m_dict["sMAPE"] = Dict()
+    m_dict["RMSE"] = Dict()
+    m_dict["nRMSE"] = Dict()
+    m_dict["MAE"] = Dict()
+    m_dict["MSE"] = Dict()
+    m_dict["MSIS"] = Dict()
+    m_dict["CRPS"] = Dict()
+    for q in [0, 0.1, 0.5, 0.9, 1]
+        m_dict["COVERAGE_$(Int64(q*100))"] = Dict()
+    end
+    for (h, idxs) in WINDOWS_HORIZON_DICT[granularity]
+        m_dict["MASE"][h] = Dict()
+        m_dict["MAPE"][h] = Dict()
+        m_dict["sMAPE"][h] = Dict()
+        m_dict["RMSE"][h] = Dict()
+        m_dict["nRMSE"][h] = Dict()
+        m_dict["MAE"][h] = Dict()
+        m_dict["MSE"][h] = Dict()
+        m_dict["MSIS"][h] = Dict()
+        m_dict["CRPS"][h] = Dict()
+        for q in [0, 0.1, 0.5, 0.9, 1]
+            m_dict["COVERAGE_$(Int64(q*100))"][h] = Dict()
+        end
+    end
+    for (h, idxs) in WINDOWS_HORIZON_DICT[granularity]
+        m_dict["MASE"][h][series_idx]  = MASE(y_train, y_test[idxs], y_forecast[idxs], GRANULARITY_DICT[granularity]["s"])
+        m_dict["MAPE"][h][series_idx]  = MAPE(y_test[idxs], y_forecast[idxs])
+        m_dict["sMAPE"][h][series_idx] = sMAPE(y_test[idxs], y_forecast[idxs])
+        m_dict["RMSE"][h][series_idx]  = RMSE(y_test[idxs], y_forecast[idxs])
+        m_dict["nRMSE"][h][series_idx] = nRMSE(y_test[idxs], y_forecast[idxs])
+        m_dict["MAE"][h][series_idx]   = MAE(y_test[idxs], y_forecast[idxs])
+        m_dict["MSE"][h][series_idx]   = MSE(y_test[idxs], y_forecast[idxs])
+        
+        if !isnothing(scenarios)
+            m_dict["MSIS"][h][series_idx] = MSIS(y_train, y_test[idxs], maximum(scenarios, dims=2)[idxs], minimum(scenarios, dims=2)[idxs], GRANULARITY_DICT[granularity]["s"])
+            m_dict["CRPS"][h][series_idx] = CRPS(scenarios[idxs, :], y_test[idxs])
+            for q in [0, 0.1, 0.5, 0.9, 1]
+                m_dict["COVERAGE_$(Int64(q*100))"][h][series_idx] = COVERAGE(scenarios[idxs, :], y_test[idxs], q)
+            end
+        else
+            m_dict["MSIS"][h][series_idx] = NaN
+            m_dict["CRPS"][h][series_idx] = NaN
+            for q in [0, 0.1, 0.5, 0.9, 1]
+                m_dict["COVERAGE_$(Int64(q*100))"][h][series_idx] = NaN
+            end
+        end
+    end
+    return m_dict
+end
+
 """
     Add the OWA metric to the dictionary of average metrics.
 
@@ -283,7 +340,7 @@ end
     Returns:
         Nothing
 """
-function add_OWA_metric(dict_average_metrics::Dict{String, DataFrame}, benchmark_name::String, model_names::Vector{String})::Nothing
+function add_OWA_metric(dict_average_metrics::Dict{String, DataFrame}, benchmark_name::String, model_names::Vector{String})
     
     number_of_models = length(model_names)
     
@@ -304,13 +361,13 @@ function add_OWA_metric(dict_average_metrics::Dict{String, DataFrame}, benchmark
 
     owa_metric_dfs = Dict{String, DataFrame}()
     for (m, model_name) in enumerate(model_names)
-        owa_metric_dfs[k] = DataFrame(matrix_metrics[m, 2:end], ["short", "medium", "long", "total"])
+        owa_metric_dfs[model_name] = DataFrame(matrix_metrics[m, 2:end][:, :]', ["short", "medium", "long", "total"])
     end
     
     return owa_metric_dfs
 end
 
-function add_ACD_metric(metrics_dict::Dict{String, DataFrame}, model_names::Vector{String}, granularity::String)::Nothing
+function add_ACD_metric(metrics_dict::Dict, model_names::Vector{String}, granularity::String)
 
     # Retornar um dicionário de tamanho igual a quantidade de métricas coverage
     # Cada chave aponta pra um DF, com número de linhas igual ao número de modelos e número de colunas igual ao horizonte
@@ -319,12 +376,12 @@ function add_ACD_metric(metrics_dict::Dict{String, DataFrame}, model_names::Vect
     
     acd_metric_dict = Dict{String, Matrix}()
     for model_name in model_names
-        acd_metric_dict[model_name] = Matrix{Union{String, Float64}}(undef, 5, length(HORIZONS))
+        acd_metric_dict[model_name] = Matrix{Union{String, Float64}}(undef, 5, length(HORIZONS) + 1)
         acd_metric_dict[model_name][:, 1] .= [0, 0.1, 0.5, 0.9, 1]
         for (j, q) in enumerate([0, 0.1, 0.5, 0.9, 1])
             for (i, h_i) in enumerate(HORIZONS)
-                number_of_series = length(metrics_dict[model_name]["ACD_$(Int64(q*100))"][h_i])
-                H = length(collect(ForecastTester.WINDOWS_HORIZON_DICT[granularity][h_i]))
+                number_of_series = length(metrics_dict[model_name]["COVERAGE_$(Int64(q*100))"][h_i])
+                H = length(collect(WINDOWS_HORIZON_DICT[granularity][h_i]))
                 acd_metric_dict[model_name][j, i + 1] = abs(q - sum(metrics_dict[model_name]["COVERAGE_$(Int64(q*100))"][h_i]) / (number_of_series * H))
             end
         end
@@ -353,13 +410,13 @@ end
 
 """
 function save_metrics(metrics_dict::Dict{String, Dict{String, Dict{String, Vector{Float64}}}}, benchmark_name::String, number_of_series::Int64, 
-                        granularity::String, errors_series_dict::Dict{String, Vector})::Nothing
+                        granularity::String, errors_series_dict::Dict{String, Vector})
 
     number_of_models     = length(metrics_dict)
     dict_average_metrics = Dict{String, DataFrame}()
 
     model_names = collect(keys(metrics_dict))
-    matrix_metrics = Array{Union{String, Float64}}(undef, number_of_series, length(METRICS), length(HORIZONS), number_of_models)
+    matrix_metrics = zeros(number_of_series, length(METRICS), length(HORIZONS), number_of_models)
     for (metric_i, metric) in enumerate(METRICS)
 
         if !(metric in ["COVERAGE_$(Int64(q*100))" for q in [0, 0.1, 0.5, 0.9, 1]])
@@ -395,7 +452,9 @@ function save_metrics(metrics_dict::Dict{String, Dict{String, Dict{String, Vecto
 
         @info "Saving OWA metric for model: $model_name"
         # CSV.write("Results/$(granularity)/$(model_name)/OWA.csv", dict_average_metrics["OWA"])
-        CSV.write("Results/$(granularity)/$(model_name)/OWA.csv", owa_metric_dfs)
+        if model_name != "Naive"
+            CSV.write("Results/$(granularity)/$(model_name)/OWA.csv", owa_metric_dfs[model_name])
+        end
 
         @info "Saving ACD metric for model: $model_name"
         CSV.write("Results/$(granularity)/$(model_name)/ACD.csv", acd_metric_dfs[model_name])
