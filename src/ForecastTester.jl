@@ -170,7 +170,7 @@ function run(test_function::Dict{String, Fn}, granularity::String) where {Fn}
                 
                 if haskey(errors_series_dict_i, model_name)
                     push!(errors_series_dict[model_name], i)
-                    for (h, idxs) in WINDOWS_HORIZON_DICT[granularity]
+                    for (h, idxs) in ForecastTester.WINDOWS_HORIZON_DICT[granularity]
                         metrics_dict[model_name]["MASE"][h][i]  = NaN
                         metrics_dict[model_name]["MAPE"][h][i]  = NaN
                         metrics_dict[model_name]["sMAPE"][h][i] = NaN
@@ -185,7 +185,7 @@ function run(test_function::Dict{String, Fn}, granularity::String) where {Fn}
                         end
                     end
                 else
-                    for (h, idxs) in WINDOWS_HORIZON_DICT[granularity]
+                    for (h, idxs) in ForecastTester.WINDOWS_HORIZON_DICT[granularity]
                         metrics_dict[model_name]["MASE"][h][i]  = m_dict["MASE"][h][i]
                         metrics_dict[model_name]["MAPE"][h][i]  = m_dict["MAPE"][h][i]
                         metrics_dict[model_name]["sMAPE"][h][i] = m_dict["sMAPE"][h][i]
@@ -208,21 +208,21 @@ function run(test_function::Dict{String, Fn}, granularity::String) where {Fn}
 
         mkdir("Results Set $m")
 
-        try
-            mkdir("Results Set $m/Results")
-        catch
-            @warn "Directory of Results already exists"
-        end
+        # try
+        #    mkdir("Results Set $m")
+        # catch
+        #    @warn "Directory of Results already exists"
+        # end
         
         try 
-            mkdir("Results Set $m/Results/$(granularity)")
+            mkdir("Results Set $m/$(granularity)")
         catch
             @warn "Directory of $(granularity) already exists"
         end
         
-        save_metrics(metrics_dict, collect(keys(benchmark_function))[1], length(data_dict), granularity, errors_series_dict, m)
+        ForecastTester.save_metrics(metrics_dict, collect(keys(benchmark_function))[1], length(data_dict), granularity, errors_series_dict, m)
         @info("Saving running time...")
-        CSV.write("Results Set $m/Results/running_time.csv", running_time_df)
+        CSV.write("Results Set $m/running_time.csv", running_time_df)
     end
 end
 
