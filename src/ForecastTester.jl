@@ -116,7 +116,7 @@ end
     Returns:
         Nothing
 """
-function run(test_function::Dict{String, Fn}, granularity::String) where {Fn}
+function run(test_function::Dict{String, Fn}, granularity::String; number_of_series::Int64 = 48000) where {Fn}
 
     benchmark_function = Dict("Naive" => ForecastTester.get_forecast_naive)
 
@@ -126,14 +126,14 @@ function run(test_function::Dict{String, Fn}, granularity::String) where {Fn}
     model_dict = merge(test_function, benchmark_function)
     data_dict  = ForecastTester.build_train_test_dict(ForecastTester.read_dataframes(granularity)...)
     
-    metrics_dict = ForecastTester.initialize_metrics_dict(collect(keys(model_dict)), length(data_dict))
+    metrics_dict = initialize_metrics_dict(collect(keys(model_dict)), number_of_series)
     errors_series_dict = ForecastTester.initialize_dict_with_errors_series(model_dict)
 
     prediction = nothing
     simulation = nothing
     
     vec_dict = []
-    for i in sort(collect(keys(data_dict)))
+    for i in sort(collect(keys(data_dict)))[1:number_of_series]
         y_train = data_dict[i]["train"]
         y_test  = data_dict[i]["test"]
         push!(vec_dict, Dict("train" => y_train, "i" => i, "model_dict" => model_dict, "s" => s, "H" => H, "granularity" => granularity, "y_test" => y_test))
@@ -141,7 +141,7 @@ function run(test_function::Dict{String, Fn}, granularity::String) where {Fn}
 
     output_vec_dict = ForecastTester.pmap(ForecastTester.run_distributed, vec_dict)
     @info("All models terminated")
-    running_time_df = DataFrame(Matrix{Float64}(undef, length(output_vec_dict), length(model_dict)), collect(keys(model_dict)))
+    running_time_df = DataFrame(Matrix{Float64}(undef, number_of_series, length(model_dict)), collect(keys(model_dict)))
 
     @info("Saved running times")
     for j in eachindex(output_vec_dict)
@@ -193,7 +193,7 @@ function run(test_function::Dict{String, Fn}, granularity::String) where {Fn}
                 end
             end
 
-            running_time_df[j, Symbol(model_name)]
+            running_time_df[i, Symbol(model_name)] = m_dict["running_time"]
         end
         
     end
@@ -210,7 +210,7 @@ function run(test_function::Dict{String, Fn}, granularity::String) where {Fn}
         @warn "Directory of $(granularity) already exists"
     end
     
-    save_metrics(metrics_dict, collect(keys(benchmark_function))[1], length(data_dict), granularity, errors_series_dict)
+    save_metrics(metrics_dict, collect(keys(benchmark_function))[1], number_of_series, granularity, errors_series_dict)
     CSV.write("Results/running_time.csv", running_time_df)
 end
 

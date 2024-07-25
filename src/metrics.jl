@@ -382,7 +382,7 @@ function add_ACD_metric(metrics_dict::Dict, model_names::Vector{String}, granula
             for (i, h_i) in enumerate(HORIZONS)
                 number_of_series = length(metrics_dict[model_name]["COVERAGE_$(Int64(q*100))"][h_i])
                 H = length(collect(WINDOWS_HORIZON_DICT[granularity][h_i]))
-                acd_metric_dict[model_name][j, i + 1] = abs(q - sum(metrics_dict[model_name]["COVERAGE_$(Int64(q*100))"][h_i]) / (number_of_series * H))
+                acd_metric_dict[model_name][j, i + 1] = abs(q - (sum(metrics_dict[model_name]["COVERAGE_$(Int64(q*100))"][h_i]) / (number_of_series * H)))
             end
         end
     end
@@ -419,18 +419,22 @@ function save_metrics(metrics_dict::Dict{String, Dict{String, Dict{String, Vecto
     matrix_metrics = zeros(number_of_series, length(METRICS), length(HORIZONS), number_of_models)
     for (metric_i, metric) in enumerate(METRICS)
 
-        if !(metric in ["COVERAGE_$(Int64(q*100))" for q in [0, 0.1, 0.5, 0.9, 1]])
-
-            matrix_average_metrics = Matrix{Union{String, Float64}}(undef, number_of_models, 5)
-            matrix_average_metrics[:, 1] = model_names
-            for (horizon_i, horizon) in enumerate(HORIZONS)
-                for (model_i, model_name) in enumerate(model_names)
+        matrix_average_metrics = Matrix{Union{String, Float64}}(undef, number_of_models, 5)
+        matrix_average_metrics[:, 1] = model_names
+        for (horizon_i, horizon) in enumerate(HORIZONS)
+            for (model_i, model_name) in enumerate(model_names)
+                if !(metric in ["COVERAGE_$(Int64(q*100))" for q in [0, 0.1, 0.5, 0.9, 1]])
                     matrix_average_metrics[model_i, horizon_i + 1]  = mean(metrics_dict[model_name][metric][horizon])
                     matrix_metrics[:, metric_i, horizon_i, model_i] = metrics_dict[model_name][metric][horizon]
+                else
+                    H = length(collect(WINDOWS_HORIZON_DICT[granularity][horizon]))
+                    matrix_average_metrics[model_i, horizon_i + 1] = sum(metrics_dict[model_name][metric][horizon]) / (number_of_series * H)
+                    matrix_metrics[:, metric_i, horizon_i, model_i] = metrics_dict[model_name][metric][horizon] ./ H
                 end
             end
-            dict_average_metrics[metric] = DataFrame(matrix_average_metrics, ["model", "short", "medium", "long", "total"])
         end
+
+        dict_average_metrics[metric] = DataFrame(matrix_average_metrics, ["model", "short", "medium", "long", "total"])
     end
         
     acd_metric_dfs = add_ACD_metric(metrics_dict, model_names, granularity)
