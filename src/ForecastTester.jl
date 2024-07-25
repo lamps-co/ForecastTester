@@ -116,7 +116,9 @@ end
     Returns:
         Nothing
 """
-function run(test_function::Dict{String, Fn}, granularity::String; number_of_series::Int64 = 48000) where {Fn}
+function run(test_function::Dict{String, Fn}, granularity::String; 
+                number_of_series::Int64 = 48000, 
+                save_intermediate_results::Union{Bool, Int64} = false) where {Fn}
 
     benchmark_function = Dict("Naive" => ForecastTester.get_forecast_naive)
 
@@ -139,79 +141,89 @@ function run(test_function::Dict{String, Fn}, granularity::String; number_of_ser
         push!(vec_dict, Dict("train" => y_train, "i" => i, "model_dict" => model_dict, "s" => s, "H" => H, "granularity" => granularity, "y_test" => y_test))
     end
 
-    output_vec_dict = ForecastTester.pmap(ForecastTester.run_distributed, vec_dict)
-    @info("All models terminated")
-    running_time_df = DataFrame(Matrix{Float64}(undef, number_of_series, length(model_dict)), collect(keys(model_dict)))
+    series_idx = []
+    number_of_sets = nothing
+    if isequal(typeof(save_intermediate_results), Int64)
+        ini = 0
+        for i in 1:Int64(number_of_series/save_intermediate_results)
+            push!(series_idx, ini + 1:ini + save_intermediate_results)
+            ini += save_intermediate_results
+        end
+        number_of_sets = Int64(number_of_series/save_intermediate_results)
+    else
+        push!(series_idx, 1:number_of_series)
+        number_of_sets = 1
+    end
 
-    @info("Saved running times")
-    for j in eachindex(output_vec_dict)
+    for m in 1:number_of_sets
 
-        printstyled("Saving results for series $(j)\n"; color = :blue)
-        (j % 1000) == 0 ? printstyled("Saving results for series $(j)\n"; color = :blue) : nothing
+        output_vec_dict = ForecastTester.pmap(ForecastTester.run_distributed, vec_dict[series_idx[m]])
+        running_time_df = DataFrame(Matrix{Float64}(undef, number_of_series, length(model_dict)), collect(keys(model_dict)))
 
-        output_i             = output_vec_dict[j]
-        
-        i                    = output_i["i"]
-        errors_series_dict_i = output_i["errors_series_dict_i"]
+        for j in eachindex(output_vec_dict)
+            printstyled("Saving results for series set $(j)\n"; color = :blue)
+            output_i             = output_vec_dict[j]
             
-        for model_name in keys(model_dict)
-        
-            m_dict           = output_i["output_dict"][model_name]
-
-            #ForecastTester.update_metrics!(metrics_dict, prediction, simulation, y_train, y_test, i, model_name, granularity)
+            i                    = output_i["i"]
+            errors_series_dict_i = output_i["errors_series_dict_i"]
+                
+            for model_name in keys(model_dict)
             
-            if haskey(errors_series_dict_i, model_name)
-                push!(errors_series_dict[model_name], i)
-                for (h, idxs) in WINDOWS_HORIZON_DICT[granularity]
-                    metrics_dict[model_name]["MASE"][h][i]  = NaN
-                    metrics_dict[model_name]["MAPE"][h][i]  = NaN
-                    metrics_dict[model_name]["sMAPE"][h][i] = NaN
-                    metrics_dict[model_name]["RMSE"][h][i]  = NaN
-                    metrics_dict[model_name]["nRMSE"][h][i] = NaN
-                    metrics_dict[model_name]["MAE"][h][i]   = NaN
-                    metrics_dict[model_name]["MSE"][h][i]   = NaN
-                    metrics_dict[model_name]["MSIS"][h][i] = NaN
-                    metrics_dict[model_name]["CRPS"][h][i] = NaN
-                    for q in [0, 0.1, 0.5, 0.9, 1]
-                        metrics_dict[model_name]["COVERAGE_$(Int64(q*100))"][h][i] = NaN
+                m_dict = output_i["output_dict"][model_name]
+                
+                if haskey(errors_series_dict_i, model_name)
+                    push!(errors_series_dict[model_name], i)
+                    for (h, idxs) in WINDOWS_HORIZON_DICT[granularity]
+                        metrics_dict[model_name]["MASE"][h][i]  = NaN
+                        metrics_dict[model_name]["MAPE"][h][i]  = NaN
+                        metrics_dict[model_name]["sMAPE"][h][i] = NaN
+                        metrics_dict[model_name]["RMSE"][h][i]  = NaN
+                        metrics_dict[model_name]["nRMSE"][h][i] = NaN
+                        metrics_dict[model_name]["MAE"][h][i]   = NaN
+                        metrics_dict[model_name]["MSE"][h][i]   = NaN
+                        metrics_dict[model_name]["MSIS"][h][i] = NaN
+                        metrics_dict[model_name]["CRPS"][h][i] = NaN
+                        for q in [0, 0.1, 0.5, 0.9, 1]
+                            metrics_dict[model_name]["COVERAGE_$(Int64(q*100))"][h][i] = NaN
+                        end
+                    end
+                else
+                    for (h, idxs) in WINDOWS_HORIZON_DICT[granularity]
+                        metrics_dict[model_name]["MASE"][h][i]  = m_dict["MASE"][h][i]
+                        metrics_dict[model_name]["MAPE"][h][i]  = m_dict["MAPE"][h][i]
+                        metrics_dict[model_name]["sMAPE"][h][i] = m_dict["sMAPE"][h][i]
+                        metrics_dict[model_name]["RMSE"][h][i]  = m_dict["RMSE"][h][i]
+                        metrics_dict[model_name]["nRMSE"][h][i] = m_dict["nRMSE"][h][i]
+                        metrics_dict[model_name]["MAE"][h][i]   = m_dict["MAE"][h][i]
+                        metrics_dict[model_name]["MSE"][h][i]   = m_dict["MSE"][h][i]
+                        metrics_dict[model_name]["MSIS"][h][i] = m_dict["MSIS"][h][i]
+                        metrics_dict[model_name]["CRPS"][h][i] = m_dict["CRPS"][h][i]
+                        for q in [0, 0.1, 0.5, 0.9, 1]
+                            metrics_dict[model_name]["COVERAGE_$(Int64(q*100))"][h][i] = m_dict["COVERAGE_$(Int64(q*100))"][h][i]
+                        end
                     end
                 end
-            else
-                for (h, idxs) in WINDOWS_HORIZON_DICT[granularity]
-                    metrics_dict[model_name]["MASE"][h][i]  = m_dict["MASE"][h][i]
-                    metrics_dict[model_name]["MAPE"][h][i]  = m_dict["MAPE"][h][i]
-                    metrics_dict[model_name]["sMAPE"][h][i] = m_dict["sMAPE"][h][i]
-                    metrics_dict[model_name]["RMSE"][h][i]  = m_dict["RMSE"][h][i]
-                    metrics_dict[model_name]["nRMSE"][h][i] = m_dict["nRMSE"][h][i]
-                    metrics_dict[model_name]["MAE"][h][i]   = m_dict["MAE"][h][i]
-                    metrics_dict[model_name]["MSE"][h][i]   = m_dict["MSE"][h][i]
-                    metrics_dict[model_name]["MSIS"][h][i] = m_dict["MSIS"][h][i]
-                    metrics_dict[model_name]["CRPS"][h][i] = m_dict["CRPS"][h][i]
-                    for q in [0, 0.1, 0.5, 0.9, 1]
-                        metrics_dict[model_name]["COVERAGE_$(Int64(q*100))"][h][i] = m_dict["COVERAGE_$(Int64(q*100))"][h][i]
-                    end
-                end
+
+                running_time_df[i, Symbol(model_name)] = m_dict["running_time"]
             end
+        end
 
-            running_time_df[i, Symbol(model_name)] = m_dict["running_time"]
+        try
+            mkdir("Results Set $m")
+        catch
+            @warn "Directory of Results already exists"
         end
         
-    end
+        try 
+            mkdir("Results Set $m/$(granularity)")
+        catch
+            @warn "Directory of $(granularity) already exists"
+        end
+        
+        save_metrics(metrics_dict, collect(keys(benchmark_function))[1], number_of_series, granularity, errors_series_dict, m)
+        CSV.write("Results Set $m/running_time.csv", running_time_df)
 
-    try
-        mkdir("Results")
-    catch
-        @warn "Directory of Results already exists"
     end
-    
-    try 
-        mkdir("Results/$(granularity)")
-    catch
-        @warn "Directory of $(granularity) already exists"
-    end
-    
-    save_metrics(metrics_dict, collect(keys(benchmark_function))[1], number_of_series, granularity, errors_series_dict)
-    CSV.write("Results/running_time.csv", running_time_df)
 end
 
 end 
