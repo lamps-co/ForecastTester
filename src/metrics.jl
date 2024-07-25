@@ -410,7 +410,7 @@ end
 
 """
 function save_metrics(metrics_dict::Dict{String, Dict{String, Dict{String, Vector{Float64}}}}, benchmark_name::String, number_of_series::Int64, 
-                        granularity::String, errors_series_dict::Dict{String, Vector})
+                        granularity::String, errors_series_dict::Dict{String, Vector}, set_idx::Int64)
 
     number_of_models     = length(metrics_dict)
     dict_average_metrics = Dict{String, DataFrame}()
@@ -444,28 +444,28 @@ function save_metrics(metrics_dict::Dict{String, Dict{String, Dict{String, Vecto
         @info "Saving metrics for model: $model_name"
 
         try
-            mkdir("Results/$(granularity)/$(model_name)")
+            mkdir("Results Set $(set_idx)/$(granularity)/$(model_name)")
         catch
             @warn "Directory of $(model_name) already exists"
         end
 
         for (horizon_i, horizon) in enumerate(HORIZONS)
             df_metrics = DataFrame(matrix_metrics[:, :, horizon_i, model_i], METRICS)
-            CSV.write("Results/$(granularity)/$(model_name)/$(horizon).csv", df_metrics)
+            CSV.write("Results Set $(set_idx)/$(granularity)/$(model_name)/$(horizon).csv", df_metrics)
         end
 
         @info "Saving OWA metric for model: $model_name"
         # CSV.write("Results/$(granularity)/$(model_name)/OWA.csv", dict_average_metrics["OWA"])
         if model_name != "Naive"
-            CSV.write("Results/$(granularity)/$(model_name)/OWA.csv", owa_metric_dfs[model_name])
+            CSV.write("Results Set $(set_idx)/$(granularity)/$(model_name)/OWA.csv", owa_metric_dfs[model_name])
         end
 
         @info "Saving ACD metric for model: $model_name"
-        CSV.write("Results/$(granularity)/$(model_name)/ACD.csv", acd_metric_dfs[model_name])
+        CSV.write("Results Set $(set_idx)/$(granularity)/$(model_name)/ACD.csv", acd_metric_dfs[model_name])
 
         @info "Saving series with errors in estimation/forecasting for model: $(model_name)"
         if !isempty(errors_series_dict[model_name])
-            CSV.write("Results/$(granularity)/$(model_name)/errors_series.csv", DataFrame(errors_series_dict[model_name][:, :], :auto))
+            CSV.write("Results Set $(set_idx)/$(granularity)/$(model_name)/errors_series.csv", DataFrame(errors_series_dict[model_name][:, :], :auto))
         end
 
     end
