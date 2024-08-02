@@ -410,13 +410,13 @@ end
 
 """
 function save_metrics(metrics_dict::Dict{String, Dict{String, Dict{String, Vector{Float64}}}}, benchmark_name::String, number_of_series::Int64, 
-                        granularity::String, errors_series_dict::Dict{String, Vector}, set_idx::Int64)
+                        granularity::String, errors_series_dict::Dict{String, Vector}, set_idx::Int64, dataset_size::Int64)
 
     number_of_models     = length(metrics_dict)
     dict_average_metrics = Dict{String, DataFrame}()
 
     model_names = collect(keys(metrics_dict))
-    matrix_metrics = zeros(number_of_series, length(METRICS), length(HORIZONS), number_of_models)
+    matrix_metrics = ones(dataset_size, length(METRICS), length(HORIZONS), number_of_models) .* NaN
     for (metric_i, metric) in enumerate(METRICS)
 
         matrix_average_metrics = Matrix{Union{String, Float64}}(undef, number_of_models, 5)

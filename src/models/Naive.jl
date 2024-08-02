@@ -44,7 +44,7 @@ function get_forecast_naive(y::Vector{Float64}, s::Int64, H::Int64, S::Int64)::T
     }else{
         des_input <- input ; SIout <- rep(1, H)
     }
-    forecast <- naive(des_input, h = H)$mean*SIout
+    forecast <- forecast::naive(des_input, h = H)$mean*SIout
     """
 
     prediction = @rget forecast
