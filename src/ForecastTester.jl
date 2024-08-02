@@ -1,6 +1,6 @@
 module ForecastTester
 
-using CSV, DataFrames, StateSpaceModels, Statistics, PyCall, Distributions, Distributed, RCall, TimeSeries
+using CSV, DataFrames, StateSpaceModels, Statistics, PyCall, Distributions, Distributed, RCall, TimeSeries, Interpolations, Random
 
 include("../StateSpaceLearning/src/StateSpaceLearning.jl")
 include("../SARIMAX.jl/src/Sarimax.jl")
@@ -14,6 +14,7 @@ include("models/AutoSarimaPython.jl")
 include("models/ETS.jl")
 include("models/StateSpaceModelsPython.jl")
 include("models/Sarimax.jl")
+include("models/Chronos_CPU.jl")
 
 const GRANULARITY_DICT = Dict("monthly"   => Dict("s" => 12, "H" => 18),
                               "daily"     => Dict("s" => 1, "H" => 14),
@@ -222,7 +223,6 @@ function run(test_function::Dict{String, Fn}, granularity::String;
         
         save_metrics(metrics_dict, collect(keys(benchmark_function))[1], number_of_series, granularity, errors_series_dict, m)
         CSV.write("Results Set $m/running_time.csv", running_time_df)
-
     end
 end
 
