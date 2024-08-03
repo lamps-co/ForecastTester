@@ -3,7 +3,6 @@ module ForecastTester
 using CSV, DataFrames, StateSpaceModels, Statistics, PyCall, Distributions, Distributed, RCall, TimeSeries, Interpolations, Random
 
 include("../StateSpaceLearning/src/StateSpaceLearning.jl")
-include("../SARIMAX.jl/src/Sarimax.jl")
 
 include("preparedata.jl")
 include("metrics.jl")
@@ -129,14 +128,22 @@ function run(test_function::Dict{String, Fn}, granularity::String;
     model_dict = merge(test_function, benchmark_function)
     data_dict  = ForecastTester.build_train_test_dict(ForecastTester.read_dataframes(granularity)...)
     
-    metrics_dict = initialize_metrics_dict(collect(keys(model_dict)), number_of_series)
+    dataset_size = length(collect(keys(data_dict)))
+
+    metrics_dict = initialize_metrics_dict(collect(keys(model_dict)), dataset_size)
     errors_series_dict = ForecastTester.initialize_dict_with_errors_series(model_dict)
 
     prediction = nothing
     simulation = nothing
     
+    Random.seed!(2024)
+    #get random vector of  size of number_of_series between 1 and length(collect(keys(data_dict)))
+    random_idx = randperm(dataset_size)[1:number_of_series]
+
+    CSV.write("runned_series.csv", DataFrame("Runned Series" => random_idx))
+
     vec_dict = []
-    for i in sort(collect(keys(data_dict)))[1:number_of_series]
+    for i in random_idx
         y_train = data_dict[i]["train"]
         y_test  = data_dict[i]["test"]
         push!(vec_dict, Dict("train" => y_train, "i" => i, "model_dict" => model_dict, "s" => s, "H" => H, "granularity" => granularity, "y_test" => y_test))
@@ -159,7 +166,7 @@ function run(test_function::Dict{String, Fn}, granularity::String;
     for m in 1:number_of_sets
 
         output_vec_dict = ForecastTester.pmap(ForecastTester.run_distributed, vec_dict[series_idx[m]])
-        running_time_df = DataFrame(Matrix{Float64}(undef, number_of_series, length(model_dict)), collect(keys(model_dict)))
+        running_time_df = DataFrame(Matrix{Float64}(undef, dataset_size, length(model_dict)), collect(keys(model_dict)))
 
         for j in eachindex(output_vec_dict)
             printstyled("Saving results for series set $(j)\n"; color = :blue)
@@ -221,7 +228,7 @@ function run(test_function::Dict{String, Fn}, granularity::String;
             @warn "Directory of $(granularity) already exists"
         end
         
-        save_metrics(metrics_dict, collect(keys(benchmark_function))[1], number_of_series, granularity, errors_series_dict, m)
+        save_metrics(metrics_dict, collect(keys(benchmark_function))[1], number_of_series, granularity, errors_series_dict, m, dataset_size)
         CSV.write("Results Set $m/running_time.csv", running_time_df)
     end
 end
