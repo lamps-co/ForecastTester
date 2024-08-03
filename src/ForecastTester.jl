@@ -14,7 +14,7 @@ include("models/AutoSarimaPython.jl")
 include("models/ETS.jl")
 include("models/StateSpaceModelsPython.jl")
 include("models/Sarimax.jl")
-include("models/Chronos_CPU.jl")
+include("models/ChronosAmazon.jl")
 
 const GRANULARITY_DICT = Dict("monthly"   => Dict("s" => 12, "H" => 18),
                               "daily"     => Dict("s" => 1, "H" => 14),
@@ -80,7 +80,7 @@ function run_distributed(input::Dict)
     errors_series_dict_i = Dict()
 
     for (model_name, model_function) in model_dict
-        
+        printstyled("Model $(model_name)"; color = :green)
         prediction = nothing; simulation = nothing; running_time = nothing; m_dict = nothing
         try
             running_time = @elapsed begin
