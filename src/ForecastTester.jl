@@ -1,6 +1,6 @@
 module ForecastTester
 
-using CSV, DataFrames, StateSpaceModels, Statistics, PyCall, Distributions, Distributed, RCall, TimeSeries, Random
+using CSV, DataFrames, StateSpaceModels, Statistics, PyCall, Distributions, Distributed, RCall, TimeSeries, Interpolations, Random
 
 include("../StateSpaceLearning/src/StateSpaceLearning.jl")
 
@@ -12,6 +12,8 @@ include("models/StateSpaceModels.jl")
 include("models/AutoSarimaPython.jl")
 include("models/ETS.jl")
 include("models/StateSpaceModelsPython.jl")
+# include("models/Sarimax.jl")
+include("models/ChronosAmazon.jl")
 
 const GRANULARITY_DICT = Dict("monthly"   => Dict("s" => 12, "H" => 18),
                               "daily"     => Dict("s" => 1, "H" => 14),
@@ -77,7 +79,7 @@ function run_distributed(input::Dict)
     errors_series_dict_i = Dict()
 
     for (model_name, model_function) in model_dict
-        
+        printstyled("Model $(model_name)"; color = :green)
         prediction = nothing; simulation = nothing; running_time = nothing; m_dict = nothing
         try
             running_time = @elapsed begin
@@ -228,7 +230,6 @@ function run(test_function::Dict{String, Fn}, granularity::String;
         
         save_metrics(metrics_dict, collect(keys(benchmark_function))[1], number_of_series, granularity, errors_series_dict, m, dataset_size)
         CSV.write("Results Set $m/running_time.csv", running_time_df)
-
     end
 end
 

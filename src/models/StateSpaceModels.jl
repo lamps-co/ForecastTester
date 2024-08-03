@@ -11,7 +11,7 @@
         prediction::Vector{Float64}: Forecasted values
         scenarios::Matrix{Flaot64}: Simulated scenarios
 """
-function get_forecas_SS(y::Vector{Float64}, s::Int64, H::Int64, S::Int64)::Tuple{Vector{Float64}, Matrix{Float64}}
+function get_forecast_SS(y::Vector{Float64}, s::Int64, H::Int64, S::Int64)::Tuple{Vector{Float64}, Matrix{Float64}}
 
     if s == 1
         model = StateSpaceModels.UnobservedComponents(y; trend = "local linear trend")
