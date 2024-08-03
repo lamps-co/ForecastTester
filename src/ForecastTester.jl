@@ -12,7 +12,7 @@ include("models/StateSpaceModels.jl")
 include("models/AutoSarimaPython.jl")
 include("models/ETS.jl")
 include("models/StateSpaceModelsPython.jl")
-include("models/Sarimax.jl")
+# include("models/Sarimax.jl")
 include("models/ChronosAmazon.jl")
 
 const GRANULARITY_DICT = Dict("monthly"   => Dict("s" => 12, "H" => 18),
