@@ -367,7 +367,7 @@ function add_OWA_metric(dict_average_metrics::Dict{String, DataFrame}, benchmark
     return owa_metric_dfs
 end
 
-function add_ACD_metric(metrics_dict::Dict, model_names::Vector{String}, granularity::String)
+function add_ACD_metric(metrics_dict::Dict, model_names::Vector{String}, granularity::String, number_of_series::Int64)
 
     # Retornar um dicionário de tamanho igual a quantidade de métricas coverage
     # Cada chave aponta pra um DF, com número de linhas igual ao número de modelos e número de colunas igual ao horizonte
@@ -380,7 +380,6 @@ function add_ACD_metric(metrics_dict::Dict, model_names::Vector{String}, granula
         acd_metric_dict[model_name][:, 1] .= [0, 0.1, 0.5, 0.9, 1]
         for (j, q) in enumerate([0, 0.1, 0.5, 0.9, 1])
             for (i, h_i) in enumerate(HORIZONS)
-                number_of_series = length(metrics_dict[model_name]["COVERAGE_$(Int64(q*100))"][h_i])
                 H = length(collect(WINDOWS_HORIZON_DICT[granularity][h_i]))
                 acd_metric_dict[model_name][j, i + 1] = abs(q - (sum(metrics_dict[model_name]["COVERAGE_$(Int64(q*100))"][h_i]) / (number_of_series * H)))
             end
@@ -437,7 +436,7 @@ function save_metrics(metrics_dict::Dict{String, Dict{String, Dict{String, Vecto
         dict_average_metrics[metric] = DataFrame(matrix_average_metrics, ["model", "short", "medium", "long", "total"])
     end
         
-    acd_metric_dfs = add_ACD_metric(metrics_dict, model_names, granularity)
+    acd_metric_dfs = add_ACD_metric(metrics_dict, model_names, granularity, number_of_series)
     owa_metric_dfs = add_OWA_metric(dict_average_metrics, benchmark_name, setdiff(model_names, [benchmark_name]))
 
     for (model_i, model_name) in enumerate(model_names)
