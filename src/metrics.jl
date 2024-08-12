@@ -152,30 +152,23 @@ function MSIS(y_train::Vector{Fl}, y_test::Vector{Fl}, U_simulation::Vector{Fl},
 
 end
 
-function CRPS(simulation::Matrix{Float64}, y::Vector{Float64})::Float64
-    H, S = size(simulation)
-    
-    crps_value = 0.0
-    for t in 1:H
-        
-        # Compute the cumulative distribution function (CDF)
-        sorted_data = sort(simulation[t, :])
-        cdf = [sum(sorted_data .<= x) / length(sorted_data) for x in sorted_data]
-        
-        # Calculate CRPS
-        t_crps_value = 0.0
-        for i in 1:S
-            if sorted_data[i] < y[t]
-                t_crps_value += (1 - cdf[i])^2
-            else
-                t_crps_value += cdf[i]^2
-            end
-        end
+function CRPS(scenarios::Matrix{Float64}, y::Vector{Float64})::Float64
+    crps_scores = Vector{Float64}(undef, length(y))
 
-        crps_value += (t_crps_value / S) / H
+    for k in eachindex(y)
+        sorted_scenarios = sort(scenarios[k, :])
+        m = length(scenarios[k, :])
+        crps_score = 0.0
+
+        for i = 1:m
+            crps_score +=
+                (sorted_scenarios[i] - y[k]) *
+                (m * (y[k] < sorted_scenarios[i]) - i + 0.5)
+        end
+        crps_scores[k] = (2 / m^2) * crps_score
     end
 
-    return crps_value
+    return mean(crps_scores)
 end
 
 
