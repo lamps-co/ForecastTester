@@ -33,6 +33,8 @@ const HORIZONS = ["short", "medium", "long", "total"]
 const S = 1000
 const METRICS = ["MASE", "sMAPE", "MAPE", "RMSE", "nRMSE", "MAE", "MSE", "MSIS", "COVERAGE_0", "COVERAGE_100", "COVERAGE_10", "COVERAGE_90", "COVERAGE_50", "CRPS"]
 const α = 0.05
+const plots_idx = [1, 47, 263, 370, 396, 477, 584, 659, 675, 706, 760, 767, 781, 783, 796, 804, 835, 905, 908, 978]
+
 """
     Read datasets from CSV files of a specified grannularity and return them as DataFrames.
 
@@ -79,7 +81,7 @@ function run_distributed(input::Dict)
     errors_series_dict_i = Dict()
 
     for (model_name, model_function) in model_dict
-        printstyled("Model $(model_name)"; color = :green)
+        printstyled("Model $(model_name)\n"; color = :green)
         prediction = nothing; simulation = nothing; running_time = nothing; m_dict = nothing
         try
             running_time = @elapsed begin
@@ -100,7 +102,13 @@ function run_distributed(input::Dict)
         #= output_dict[model_name]["prediction"]   = prediction
         output_dict[model_name]["simulation"]   = simulation =#
         output_dict[model_name]["running_time"] = running_time
-
+        
+        if input["count_i"] in plots_idx
+            output_dict[model_name]["y_train"]    = y_train
+            output_dict[model_name]["y_test"]     = y_test
+            output_dict[model_name]["prediction"] = prediction
+            output_dict[model_name]["simulation"] = simulation
+        end
     end
 
     return Dict("output_dict" => output_dict, "i" => i, "errors_series_dict_i" => errors_series_dict_i)
@@ -143,10 +151,10 @@ function run(test_function::Dict{String, Fn}, granularity::String;
     CSV.write("runned_series.csv", DataFrame("Runned Series" => random_idx))
 
     vec_dict = []
-    for i in random_idx
+    for (j, i) in enumerate(random_idx)
         y_train = data_dict[i]["train"]
         y_test  = data_dict[i]["test"]
-        push!(vec_dict, Dict("train" => y_train, "i" => i, "model_dict" => model_dict, "s" => s, "H" => H, "granularity" => granularity, "y_test" => y_test))
+        push!(vec_dict, Dict("train" => y_train, "i" => i, "model_dict" => model_dict, "s" => s, "H" => H, "granularity" => granularity, "y_test" => y_test, "count_i" => j))
     end
 
     series_idx = []
@@ -163,6 +171,7 @@ function run(test_function::Dict{String, Fn}, granularity::String;
         number_of_sets = 1
     end
 
+    output_vec_dict = nothing
     for m in 1:number_of_sets
 
         output_vec_dict = ForecastTester.pmap(ForecastTester.run_distributed, vec_dict[series_idx[m]])
@@ -231,6 +240,8 @@ function run(test_function::Dict{String, Fn}, granularity::String;
         save_metrics(metrics_dict, collect(keys(benchmark_function))[1], number_of_series, granularity, errors_series_dict, m, dataset_size)
         CSV.write("Results Set $m/running_time.csv", running_time_df)
     end
+
+    return output_vec_dict
 end
 
 end 
