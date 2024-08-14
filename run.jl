@@ -1,18 +1,10 @@
 import Pkg
 Pkg.activate(".")
 Pkg.instantiate()
-
-using RCall
-
-R"""
-library(forecast)
-library(stats)
-"""
-
 using ForecastTester 
 
 using Distributed 
-addprocs(2)
+addprocs(1)
 
 @everywhere begin 
     import Pkg
@@ -22,12 +14,19 @@ addprocs(2)
 
     include("src/ForecastTester.jl")
 
-    test_function = Dict("State Space Python" => ForecastTester.get_forecast_SSM)
+    test_function = Dict("Chronos Tiny"       => ForecastTester.get_forecast_chronos_tiny,
+                         "Chronos Mini"       => ForecastTester.get_forecast_chronos_mini,
+                         "Chronos Small"      => ForecastTester.get_forecast_chronos_small,
+                         "Chronos Base"       => ForecastTester.get_forecast_chronos_base,
+                         "Chronos Large"      => ForecastTester.get_forecast_chronos_large,
+                         "State Space Python" => ForecastTester.get_forecast_SSM,
+                         "ETS"                => ForecastTester.get_forecast_ETS,
+                         "Sarima Python"      => ForecastTester.get_forecast_sarima)
 
     granularity = "monthly"
 end
 
-output = ForecastTester.run(test_function, granularity; number_of_series = 10, save_intermediate_results = false)
+output = ForecastTester.run(test_function, granularity; number_of_series = 1000, save_intermediate_results = false)
 
 # -------------------------------------------------------------------------------------------------------------------------- #
 
@@ -54,12 +53,12 @@ series_idx = CSV.read("runned_series.csv", DataFrame)[:, 1]
 
 for (i, idx) in enumerate(plots_idx)
     for m_name in model_names
-        y_train = output[i]["output_dict"][m_name]["y_train"]
-        y_test  = output[i]["output_dict"][m_name]["y_test"]
+        y_train = output[idx]["output_dict"][m_name]["y_train"]
+        y_test  = output[idx]["output_dict"][m_name]["y_test"]
         T = length(y_train)
         H = length(y_test)
-        forec      = output[i]["output_dict"][m_name]["prediction"]
-        simulation = output[i]["output_dict"][m_name]["simulation"] 
+        forec      = output[idx]["output_dict"][m_name]["prediction"]
+        simulation = output[idx]["output_dict"][m_name]["simulation"] 
 
         maximum_scenario = maximum(simulation, dims = 2)
         minimum_scenario = minimum(simulation, dims = 2)
